@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Interactive Data Explorer</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0f1226;
+    --bg-2: #171a35;
+    --card: #1d2142;
+    --line: #2d3266;
+    --text: #e8eaf6;
+    --muted: #9aa0c7;
+    --accent: #6c8cff;
+    --accent-2: #36d6c3;
+    --accent-3: #ff7eb6;
+    --accent-4: #ffd166;
+    --shadow: 0 10px 30px rgba(0,0,0,.35);
+    --radius: 16px;
+  }
+  [data-theme="light"] {
+    --bg: #f4f6fb;
+    --bg-2: #ffffff;
+    --card: #ffffff;
+    --line: #e4e8f2;
+    --text: #1a1d2e;
+    --muted: #5b6280;
+    --shadow: 0 10px 30px rgba(20,30,80,.08);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+    background: radial-gradient(1200px 600px at 80% -10%, rgba(108,140,255,.18), transparent 60%),
+                radial-gradient(1000px 500px at -10% 10%, rgba(54,214,195,.12), transparent 55%),
+                var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    transition: background .3s, color .3s;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 28px 22px 60px; }
+  header.top {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; margin-bottom: 22px; flex-wrap: wrap;
+  }
+  .brand { display: flex; align-items: center; gap: 14px; }
+  .logo {
+    width: 44px; height: 44px; border-radius: 12px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    display: grid; place-items: center; box-shadow: var(--shadow);
+  }
+  .logo svg { width: 24px; height: 24px; }
+  h1 { font-size: 1.45rem; margin: 0; letter-spacing: -.4px; }
+  .sub { color: var(--muted); font-size: .85rem; margin-top: 2px; }
+  .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .btn {
+    background: var(--card); color: var(--text); border: 1px solid var(--line);
+    padding: 9px 14px; border-radius: 10px; cursor: pointer; font-size: .85rem;
+    transition: .15s; display: inline-flex; align-items: center; gap: 7px;
+  }
+  .btn:hover { border-color: var(--accent); transform: translateY(-1px); }
+  select.btn { appearance: none; padding-right: 30px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239aa0c7' stroke-width='3'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 10px center; }
+
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px; }
+  .kpi {
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 16px 18px; box-shadow: var(--shadow); position: relative; overflow: hidden;
+  }
+  .kpi::after { content:""; position:absolute; right:-20px; top:-20px; width:80px; height:80px;
+    border-radius:50%; background: var(--accent); opacity:.08; }
+  .kpi .label { color: var(--muted); font-size: .78rem; text-transform: uppercase; letter-spacing: .6px; }
+  .kpi .val { font-size: 1.7rem; font-weight: 700; margin-top: 6px; letter-spacing: -.5px; }
+  .kpi .delta { font-size: .8rem; margin-top: 4px; }
+  .up { color: var(--accent-2); } .down { color: var(--accent-3); }
+
+  .toolbar {
+    display: flex; gap: 18px; align-items: center; flex-wrap: wrap;
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 14px 18px; margin-bottom: 18px; box-shadow: var(--shadow);
+  }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip {
+    border: 1px solid var(--line); background: transparent; color: var(--muted);
+    padding: 6px 12px; border-radius: 99px; cursor: pointer; font-size: .8rem; transition: .15s;
+  }
+  .chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  input[type="range"] { accent-color: var(--accent); }
+
+  .grid { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 18px; box-shadow: var(--shadow);
+  }
+  .card h3 { margin: 0 0 4px; font-size: 1rem; }
+  .card .hint { color: var(--muted); font-size: .78rem; margin-bottom: 12px; }
+  .chart-box { position: relative; height: 340px; }
+  .chart-box.sm { height: 300px; }
+  .full { grid-column: 1 / -1; }
+
+  footer { color: var(--muted); font-size: .78rem; text-align: center; margin-top: 26px; }
+  .drop {
+    border: 1.5px dashed var(--line); border-radius: 10px; padding: 9px 14px;
+    color: var(--muted); font-size: .8rem; cursor: pointer; transition: .15s;
+  }
+  .drop:hover { border-color: var(--accent); color: var(--text); }
+  @media (max-width: 820px) { .grid { grid-template-columns: 1fr; } .kpis { grid-template-columns: repeat(2,1fr); } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <div class="logo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round">
+          <path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/>
+        </svg>
+      </div>
+      <div>
+        <h1>Interactive Data Explorer</h1>
+        <div class="sub">Filter, drill, and compare — or drop in your own CSV</div>
+      </div>
+    </div>
+    <div class="controls">
+      <label class="drop" for="csv">⬆ Upload CSV</label>
+      <input id="csv" type="file" accept=".csv" hidden />
+      <select id="dataset" class="btn">
+        <option value="sales">Sample: Product Sales</option>
+        <option value="traffic">Sample: Web Traffic</option>
+        <option value="climate">Sample: Avg Temperature</option>
+      </select>
+      <button id="theme" class="btn">🌙 Theme</button>
+    </div>
+  </header>
+
+  <section class="kpis" id="kpis"></section>
+
+  <div class="toolbar">
+    <div class="field">
+      <label>Series</label>
+      <div class="chips" id="seriesChips"></div>
+    </div>
+    <div class="field">
+      <label>Chart type</label>
+      <div class="chips" id="typeChips">
+        <button class="chip active" data-type="line">Line</button>
+        <button class="chip" data-type="bar">Bar</button>
+        <button class="chip" data-type="area">Area</button>
+      </div>
+    </div>
+    <div class="field" style="flex:1; min-width:200px;">
+      <label>Range: <span id="rangeLabel"></span></label>
+      <input type="range" id="range" min="2" max="12" value="12" />
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h3>Trend over time</h3>
+      <div class="hint">Hover for exact values. Toggle series above.</div>
+      <div class="chart-box"><canvas id="main"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>Composition</h3>
+      <div class="hint">Share by series for the selected range.</div>
+      <div class="chart-box sm"><canvas id="donut"></canvas></div>
+    </div>
+    <div class="card full">
+      <h3>Totals by series</h3>
+      <div class="hint">Aggregated across the visible window.</div>
+      <div class="chart-box sm"><canvas id="bars"></canvas></div>
+    </div>
+  </div>
+
+  <footer>Built as a single self-contained HTML file · Charts via Chart.js · No data leaves your browser</footer>
+</div>
+
+<script>
+// ---------- Sample datasets ----------
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const PALETTE = ["#6c8cff","#36d6c3","#ff7eb6","#ffd166","#a78bfa","#4ade80"];
+
+const DATASETS = {
+  sales: {
+    unit: "$", labels: MONTHS,
+    series: {
+      "Hardware":   [42,45,48,51,49,55,60,58,63,67,70,74].map(v=>v*1000),
+      "Software":   [30,33,35,38,42,45,49,52,55,59,62,68].map(v=>v*1000),
+      "Services":   [18,19,21,22,24,26,25,28,30,31,33,36].map(v=>v*1000),
+    }
+  },
+  traffic: {
+    unit: "", labels: MONTHS,
+    series: {
+      "Organic":  [12,14,15,17,19,22,24,23,26,29,31,34].map(v=>v*1000),
+      "Paid":     [8,9,11,10,13,15,14,16,18,17,19,21].map(v=>v*1000),
+      "Social":   [5,6,8,9,11,10,13,15,14,17,19,22].map(v=>v*1000),
+      "Referral": [3,3,4,5,4,6,7,6,8,9,8,10].map(v=>v*1000),
+    }
+  },
+  climate: {
+    unit: "°C", labels: MONTHS,
+    series: {
+      "Manila":  [27,28,29,30,31,30,29,29,29,29,28,27],
+      "Tokyo":   [6,7,10,15,20,23,27,28,24,18,13,8],
+      "London":  [5,6,8,11,14,17,19,19,16,12,8,6],
+    }
+  }
+};
+
+// ---------- State ----------
+let current = "sales";
+let chartType = "line";
+let activeSeries = new Set();
+let rangeN = 12;
+let charts = {};
+
+// ---------- Helpers ----------
+const $ = s => document.querySelector(s);
+const fmt = (n, unit) => {
+  if (unit === "$") return "$" + Intl.NumberFormat("en",{notation:"compact",maximumFractionDigits:1}).format(n);
+  if (unit === "°C") return n.toFixed(1) + "°";
+  return Intl.NumberFormat("en",{notation:"compact",maximumFractionDigits:1}).format(n);
+};
+const cssVar = v => getComputedStyle(document.body).getPropertyValue(v).trim();
+
+function dataView() {
+  const ds = DATASETS[current];
+  const labels = ds.labels.slice(-rangeN);
+  const series = {};
+  Object.keys(ds.series).forEach(k => series[k] = ds.series[k].slice(-rangeN));
+  return { labels, series, unit: ds.unit };
+}
+
+// ---------- Build series chips ----------
+function buildSeriesChips() {
+  const ds = DATASETS[current];
+  const keys = Object.keys(ds.series);
+  activeSeries = new Set(keys);
+  const box = $("#seriesChips");
+  box.innerHTML = "";
+  keys.forEach((k,i) => {
+    const b = document.createElement("button");
+    b.className = "chip active";
+    b.textContent = k;
+    b.style.borderColor = PALETTE[i % PALETTE.length];
+    b.onclick = () => {
+      if (activeSeries.has(k)) { activeSeries.delete(k); b.classList.remove("active"); }
+      else { activeSeries.add(k); b.classList.add("active"); }
+      renderAll();
+    };
+    box.appendChild(b);
+  });
+}
+
+// ---------- KPIs ----------
+function renderKPIs() {
+  const { series, unit } = dataView();
+  const keys = [...activeSeries];
+  const box = $("#kpis");
+  box.innerHTML = "";
+  const total = keys.reduce((s,k)=> s + series[k].reduce((a,b)=>a+b,0), 0);
+  const cards = [];
+  cards.push({ label: "Total", val: fmt(total, unit), delta: "" });
+  keys.slice(0,3).forEach(k => {
+    const arr = series[k];
+    const last = arr[arr.length-1], prev = arr[arr.length-2] ?? last;
+    const pct = prev ? ((last-prev)/prev*100) : 0;
+    cards.push({
+      label: k, val: fmt(last, unit),
+      delta: (pct>=0?"▲ ":"▼ ") + Math.abs(pct).toFixed(1) + "% MoM",
+      up: pct>=0
+    });
+  });
+  cards.forEach(c => {
+    const el = document.createElement("div");
+    el.className = "kpi";
+    el.innerHTML = `<div class="label">${c.label}</div><div class="val">${c.val}</div>` +
+      (c.delta ? `<div class="delta ${c.up?'up':'down'}">${c.delta}</div>` : `<div class="delta">&nbsp;</div>`);
+    box.appendChild(el);
+  });
+}
+
+// ---------- Charts ----------
+function baseOptions() {
+  const grid = cssVar("--line"); const text = cssVar("--muted");
+  return {
+    responsive: true, maintainAspectRatio: false,
+    interaction: { mode: "index", intersect: false },
+    plugins: {
+      legend: { labels: { color: text, usePointStyle: true, boxWidth: 8 } },
+      tooltip: { backgroundColor: cssVar("--bg-2"), titleColor: cssVar("--text"),
+        bodyColor: cssVar("--text"), borderColor: grid, borderWidth: 1, padding: 10 }
+    },
+    scales: {
+      x: { grid: { color: grid }, ticks: { color: text } },
+      y: { grid: { color: grid }, ticks: { color: text } }
+    }
+  };
+}
+
+function renderMain() {
+  const { labels, series, unit } = dataView();
+  const keys = [...activeSeries];
+  const datasets = keys.map((k,i) => {
+    const c = PALETTE[Object.keys(DATASETS[current].series).indexOf(k) % PALETTE.length];
+    return {
+      label: k, data: series[k],
+      borderColor: c, backgroundColor: chartType==="area" ? c+"33" : c,
+      fill: chartType==="area", tension: .35, borderWidth: 2.5,
+      pointRadius: 3, pointHoverRadius: 6, pointBackgroundColor: c
+    };
+  });
+  const type = chartType === "bar" ? "bar" : "line";
+  const opts = baseOptions();
+  opts.plugins.tooltip.callbacks = { label: c => ` ${c.dataset.label}: ${fmt(c.parsed.y, unit)}` };
+  opts.scales.y.ticks.callback = v => fmt(v, unit);
+  charts.main?.destroy();
+  charts.main = new Chart($("#main"), { type, data: { labels, datasets }, options: opts });
+}
+
+function renderDonut() {
+  const { series, unit } = dataView();
+  const keys = [...activeSeries];
+  const totals = keys.map(k => series[k].reduce((a,b)=>a+b,0));
+  const colors = keys.map(k => PALETTE[Object.keys(DATASETS[current].series).indexOf(k) % PALETTE.length]);
+  charts.donut?.destroy();
+  charts.donut = new Chart($("#donut"), {
+    type: "doughnut",
+    data: { labels: keys, datasets: [{ data: totals, backgroundColor: colors, borderWidth: 0, hoverOffset: 8 }] },
+    options: { responsive: true, maintainAspectRatio: false, cutout: "62%",
+      plugins: { legend: { position: "bottom", labels: { color: cssVar("--muted"), usePointStyle: true, boxWidth: 8 } },
+        tooltip: { callbacks: { label: c => ` ${c.label}: ${fmt(c.parsed, unit)}` } } } }
+  });
+}
+
+function renderBars() {
+  const { series, unit } = dataView();
+  const keys = [...activeSeries];
+  const totals = keys.map(k => series[k].reduce((a,b)=>a+b,0));
+  const colors = keys.map(k => PALETTE[Object.keys(DATASETS[current].series).indexOf(k) % PALETTE.length]);
+  const opts = baseOptions();
+  opts.indexAxis = "y";
+  opts.plugins.legend.display = false;
+  opts.plugins.tooltip.callbacks = { label: c => ` ${fmt(c.parsed.x, unit)}` };
+  opts.scales.x.ticks.callback = v => fmt(v, unit);
+  charts.bars?.destroy();
+  charts.bars = new Chart($("#bars"), {
+    type: "bar",
+    data: { labels: keys, datasets: [{ data: totals, backgroundColor: colors, borderRadius: 6, barThickness: 26 }] },
+    options: opts
+  });
+}
+
+function renderAll() { renderKPIs(); renderMain(); renderDonut(); renderBars(); }
+
+// ---------- Controls ----------
+$("#dataset").onchange = e => {
+  current = e.target.value;
+  const max = DATASETS[current].labels.length;
+  $("#range").max = max; $("#range").value = max; rangeN = max;
+  $("#rangeLabel").textContent = "last " + rangeN;
+  buildSeriesChips(); renderAll();
+};
+
+$("#typeChips").onclick = e => {
+  if (!e.target.dataset.type) return;
+  chartType = e.target.dataset.type;
+  [...$("#typeChips").children].forEach(c => c.classList.toggle("active", c===e.target));
+  renderMain();
+};
+
+$("#range").oninput = e => {
+  rangeN = +e.target.value;
+  $("#rangeLabel").textContent = "last " + rangeN;
+  renderAll();
+};
+
+$("#theme").onclick = () => {
+  const light = document.body.getAttribute("data-theme") === "light";
+  document.body.setAttribute("data-theme", light ? "dark" : "light");
+  $("#theme").textContent = light ? "🌙 Theme" : "☀ Theme";
+  renderAll();
+};
+
+// ---------- CSV upload ----------
+// Expected: first column = label (e.g. date), remaining columns = numeric series with headers.
+$("#csv").onchange = e => {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const rows = ev.target.result.trim().split(/\r?\n/).map(r => r.split(","));
+      const headers = rows[0].map(h => h.trim());
+      const labels = [], series = {};
+      headers.slice(1).forEach(h => series[h] = []);
+      rows.slice(1).forEach(r => {
+        labels.push(r[0].trim());
+        headers.slice(1).forEach((h,i) => series[h].push(parseFloat(r[i+1]) || 0));
+      });
+      DATASETS.uploaded = { unit: "", labels, series };
+      let opt = [...$("#dataset").options].find(o => o.value === "uploaded");
+      if (!opt) { opt = new Option(`Uploaded: ${file.name}`, "uploaded"); $("#dataset").add(opt, 0); }
+      else { opt.textContent = `Uploaded: ${file.name}`; }
+      $("#dataset").value = "uploaded";
+      $("#dataset").onchange({ target: { value: "uploaded" } });
+    } catch (err) { alert("Could not parse CSV. Expected: label column + numeric series columns with headers."); }
+  };
+  reader.readAsText(file);
+};
+
+// ---------- Init ----------
+$("#rangeLabel").textContent = "last 12";
+buildSeriesChips();
+renderAll();
+</script>
+</body>
+</html>
