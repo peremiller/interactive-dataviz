@@ -134,6 +134,7 @@
   .concern .desc { color: var(--muted); font-size: .82rem; margin-top: 3px; line-height: 1.4; }
   .concern .tags { margin-top: 7px; display: flex; gap: 6px; flex-wrap: wrap; }
   .tag { font-size: .68rem; padding: 3px 8px; border-radius: 99px; background: var(--bg-2); color: var(--muted); border: 1px solid var(--line); }
+  .tag.live { color: var(--accent-2); border-color: var(--accent-2); vertical-align: middle; margin-left: 8px; font-weight: 600; }
   .concern .metric { text-align: right; min-width: 120px; }
   .concern .metric .big { font-size: 1.25rem; font-weight: 800; letter-spacing: -.5px; }
   .concern .metric .cap { font-size: .68rem; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
@@ -233,8 +234,8 @@
   <section class="card full concerns" id="concerns">
     <div class="concerns-head">
       <div>
-        <h3>Accenture Employee Concerns</h3>
-        <div class="hint">Synthesized from Reddit (r/Accenture) &amp; employee forums. Scores are indicative, not official.</div>
+        <h3>Accenture Employee Concerns <span class="tag live" id="liveBadge" hidden>● live from r/Accenture</span></h3>
+        <div class="hint" id="concernSource">Synthesized from Reddit (r/Accenture) &amp; employee forums. Scores are indicative, not official.</div>
       </div>
       <div class="chips" id="concernTabs">
         <button class="chip active" data-view="controversial">🔥 Most controversial</button>
@@ -625,33 +626,43 @@ function parseCsvLine(line) {
   return out;
 }
 
+function concernsFromCsv(text) {
+  const lines = text.trim().split(/\r?\n/);
+  const head = parseCsvLine(lines[0]).map(h => h.trim().toLowerCase());
+  const idx = k => head.indexOf(k);
+  if (idx("title") < 0 || idx("controversy") < 0) throw new Error("missing required columns");
+  const rows = lines.slice(1).filter(l => l.trim()).map(l => {
+    const f = parseCsvLine(l);
+    const g = k => (idx(k) >= 0 ? (f[idx(k)] || "").trim() : "");
+    return {
+      title: g("title"),
+      desc: g("desc"),
+      controversy: +g("controversy") || 0,
+      trend: +g("trend") || 0,
+      volume: +g("volume") || 0,
+      date: g("date") || "2026-01-01",
+      tags: g("tags") ? g("tags").split(";").map(t => t.trim()).filter(Boolean) : []
+    };
+  });
+  if (!rows.length) throw new Error("no rows");
+  return rows;
+}
+
+function applyConcerns(rows, { live = false } = {}) {
+  CONCERNS = rows;
+  $("#liveBadge").hidden = !live;
+  if (live) $("#concernSource").textContent =
+    "Live from r/Accenture via the OAuth API. Scores are heuristics from public post signals, not official metrics.";
+  $("#concernReset").hidden = false;
+  renderConcerns();
+}
+
 $("#concernCsv").onchange = e => {
   const file = e.target.files[0]; if (!file) return;
   const reader = new FileReader();
   reader.onload = ev => {
-    try {
-      const lines = ev.target.result.trim().split(/\r?\n/);
-      const head = parseCsvLine(lines[0]).map(h => h.trim().toLowerCase());
-      const idx = k => head.indexOf(k);
-      if (idx("title") < 0 || idx("controversy") < 0) throw 0;
-      const rows = lines.slice(1).filter(l => l.trim()).map(l => {
-        const f = parseCsvLine(l);
-        const g = k => (idx(k) >= 0 ? (f[idx(k)] || "").trim() : "");
-        return {
-          title: g("title"),
-          desc: g("desc"),
-          controversy: +g("controversy") || 0,
-          trend: +g("trend") || 0,
-          volume: +g("volume") || 0,
-          date: g("date") || "2026-01-01",
-          tags: g("tags") ? g("tags").split(";").map(t => t.trim()).filter(Boolean) : []
-        };
-      });
-      if (!rows.length) throw 0;
-      CONCERNS = rows;
-      $("#concernReset").hidden = false;
-      renderConcerns();
-    } catch { alert("Could not parse concerns CSV.\nExpected header: " + CONCERN_COLS.join(",") + "\n(tags separated by ; )"); }
+    try { applyConcerns(concernsFromCsv(ev.target.result)); }
+    catch { alert("Could not parse concerns CSV.\nExpected header: " + CONCERN_COLS.join(",") + "\n(tags separated by ; )"); }
     e.target.value = "";
   };
   reader.readAsText(file);
@@ -678,8 +689,17 @@ $("#concernTemplate").onclick = () => {
 $("#concernReset").onclick = () => {
   CONCERNS = DEFAULT_CONCERNS.map(c => ({ ...c, tags: [...c.tags] }));
   $("#concernReset").hidden = true;
+  $("#liveBadge").hidden = true;
+  $("#concernSource").textContent =
+    "Synthesized from Reddit (r/Accenture) & employee forums. Scores are indicative, not official.";
   renderConcerns();
 };
+
+// Auto-load live data if a concerns.csv has been generated & deployed (fetch-concerns.mjs).
+fetch("concerns.csv", { cache: "no-store" })
+  .then(r => r.ok ? r.text() : Promise.reject())
+  .then(txt => { applyConcerns(concernsFromCsv(txt), { live: true }); })
+  .catch(() => {}); // no file → keep built-in research data
 
 // ---------- Export ----------
 function download(filename, blob) {
