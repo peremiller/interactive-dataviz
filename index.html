@@ -120,7 +120,8 @@
   @media (max-width: 820px) { .grid { grid-template-columns: 1fr; } .kpis { grid-template-columns: repeat(2,1fr); } }
 
   .concerns-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; }
-  .concern-list { display: flex; flex-direction: column; gap: 10px; }
+  .concern-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+  .concern-list { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
   .concern {
     display: grid; grid-template-columns: 40px 1fr auto; gap: 14px; align-items: center;
     border: 1px solid var(--line); border-radius: 12px; padding: 13px 15px;
@@ -241,6 +242,14 @@
         <button class="chip" data-view="recent">🕒 Most recent</button>
       </div>
     </div>
+    <div class="concern-actions">
+      <label class="drop" for="concernCsv">⬆ Upload concerns CSV</label>
+      <input id="concernCsv" type="file" accept=".csv" hidden />
+      <button class="btn" id="concernTemplate" title="Download a CSV template you can fill in">⬇ Template</button>
+      <button class="btn" id="concernExport" title="Download the current concerns as CSV">📄 Export</button>
+      <button class="btn" id="concernReset" hidden title="Restore the built-in research data">↺ Reset</button>
+    </div>
+    <div class="chart-box sm" style="height:260px"><canvas id="concernChart"></canvas></div>
     <div class="concern-list" id="concernList"></div>
   </section>
 
@@ -459,6 +468,7 @@ $("#theme").onclick = () => {
   document.body.setAttribute("data-theme", light ? "dark" : "light");
   $("#theme").textContent = light ? "🌙 Theme" : "☀ Theme";
   renderAll();
+  renderConcerns();
 };
 
 // ---------- CSV upload ----------
@@ -491,7 +501,7 @@ $("#csv").onchange = e => {
 // Synthesized from r/Accenture + employee forums (Blind, reviews) and 2025-26 reporting.
 // controversy = how divisive/debated (0-100); trend = momentum vs prior period (%);
 // date = when it most recently spiked; volume = relative discussion share.
-const CONCERNS = [
+let CONCERNS = [
   { title: "AI 'use it or lose it' mandate", date: "2026-02-19", controversy: 94, trend: 88, volume: 78,
     desc: "Senior staff told regular AI-tool adoption is required for promotion; weekly tool log-ins tracked. Seen as surveillance.",
     tags: ["AI", "promotion", "surveillance"] },
@@ -518,16 +528,49 @@ const CONCERNS = [
     tags: ["onboarding", "process"] },
 ];
 
+const DEFAULT_CONCERNS = CONCERNS.map(c => ({ ...c, tags: [...c.tags] }));
 let concernView = "controversial";
 const fmtDate = iso => new Date(iso + "T00:00:00").toLocaleDateString("en", { month: "short", day: "numeric", year: "numeric" });
 const daysAgo = iso => Math.round((Date.now() - new Date(iso + "T00:00:00")) / 864e5);
 
-function renderConcerns() {
-  const list = $("#concernList");
+function sortedConcerns() {
   const items = [...CONCERNS];
   if (concernView === "controversial") items.sort((a,b) => b.controversy - a.controversy);
   else if (concernView === "trending")  items.sort((a,b) => b.trend - a.trend);
   else                                  items.sort((a,b) => b.date.localeCompare(a.date));
+  return items;
+}
+
+function renderConcernChart(items) {
+  let values, labelCap, colorFor;
+  if (concernView === "controversial") {
+    values = items.map(c => c.controversy); labelCap = "Controversy (0–100)";
+    colorFor = () => cssVar("--accent-3");
+  } else if (concernView === "trending") {
+    values = items.map(c => c.trend); labelCap = "Momentum (%)";
+    colorFor = v => v >= 0 ? cssVar("--accent-2") : cssVar("--accent-3");
+  } else {
+    values = items.map(c => daysAgo(c.date)); labelCap = "Days since last spike (lower = newer)";
+    colorFor = () => cssVar("--accent");
+  }
+  const labels = items.map(c => c.title);
+  const opts = baseOptions();
+  opts.indexAxis = "y";
+  opts.plugins.legend.display = false;
+  opts.plugins.tooltip.callbacks = { label: c => ` ${labelCap.split(" (")[0]}: ${c.parsed.x}` };
+  opts.scales.x.title = { display: true, text: labelCap, color: cssVar("--muted") };
+  charts.concern?.destroy();
+  charts.concern = new Chart($("#concernChart"), {
+    type: "bar",
+    data: { labels, datasets: [{ data: values, backgroundColor: values.map(colorFor), borderRadius: 6, barThickness: 16 }] },
+    options: opts
+  });
+}
+
+function renderConcerns() {
+  const list = $("#concernList");
+  const items = sortedConcerns();
+  renderConcernChart(items);
 
   list.innerHTML = items.map((c, i) => {
     let metric;
@@ -560,6 +603,81 @@ $("#concernTabs").onclick = e => {
   if (!e.target.dataset.view) return;
   concernView = e.target.dataset.view;
   [...$("#concernTabs").children].forEach(c => c.classList.toggle("active", c === e.target));
+  renderConcerns();
+};
+
+// ---- Concerns CSV: columns = title,desc,controversy,trend,volume,date,tags (tags separated by ;) ----
+const CONCERN_COLS = ["title","desc","controversy","trend","volume","date","tags"];
+
+function parseCsvLine(line) {
+  const out = []; let cur = "", q = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (q) {
+      if (ch === '"' && line[i+1] === '"') { cur += '"'; i++; }
+      else if (ch === '"') q = false;
+      else cur += ch;
+    } else if (ch === '"') q = true;
+    else if (ch === ",") { out.push(cur); cur = ""; }
+    else cur += ch;
+  }
+  out.push(cur);
+  return out;
+}
+
+$("#concernCsv").onchange = e => {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const lines = ev.target.result.trim().split(/\r?\n/);
+      const head = parseCsvLine(lines[0]).map(h => h.trim().toLowerCase());
+      const idx = k => head.indexOf(k);
+      if (idx("title") < 0 || idx("controversy") < 0) throw 0;
+      const rows = lines.slice(1).filter(l => l.trim()).map(l => {
+        const f = parseCsvLine(l);
+        const g = k => (idx(k) >= 0 ? (f[idx(k)] || "").trim() : "");
+        return {
+          title: g("title"),
+          desc: g("desc"),
+          controversy: +g("controversy") || 0,
+          trend: +g("trend") || 0,
+          volume: +g("volume") || 0,
+          date: g("date") || "2026-01-01",
+          tags: g("tags") ? g("tags").split(";").map(t => t.trim()).filter(Boolean) : []
+        };
+      });
+      if (!rows.length) throw 0;
+      CONCERNS = rows;
+      $("#concernReset").hidden = false;
+      renderConcerns();
+    } catch { alert("Could not parse concerns CSV.\nExpected header: " + CONCERN_COLS.join(",") + "\n(tags separated by ; )"); }
+    e.target.value = "";
+  };
+  reader.readAsText(file);
+};
+
+function concernsToCsv(rows) {
+  const esc = v => /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g,'""')}"` : v;
+  const head = CONCERN_COLS.join(",");
+  const body = rows.map(c => [c.title, c.desc, c.controversy, c.trend, c.volume, c.date, c.tags.join(";")].map(esc).join(","));
+  return head + "\n" + body.join("\n");
+}
+
+$("#concernExport").onclick = () =>
+  download("accenture-concerns.csv", new Blob([concernsToCsv(CONCERNS)], { type: "text/csv" }));
+
+$("#concernTemplate").onclick = () => {
+  const sample = [
+    { title: "Example concern A", desc: "Short description of the concern.", controversy: 80, trend: 25, volume: 60, date: "2026-03-01", tags: ["tagA","tagB"] },
+    { title: "Example concern B", desc: "Another concern.", controversy: 45, trend: -10, volume: 40, date: "2026-01-15", tags: ["tagC"] }
+  ];
+  download("concerns-template.csv", new Blob([concernsToCsv(sample)], { type: "text/csv" }));
+};
+
+$("#concernReset").onclick = () => {
+  CONCERNS = DEFAULT_CONCERNS.map(c => ({ ...c, tags: [...c.tags] }));
+  $("#concernReset").hidden = true;
   renderConcerns();
 };
 
