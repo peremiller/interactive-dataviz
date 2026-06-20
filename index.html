@@ -118,6 +118,22 @@
   }
   .drop:hover { border-color: var(--accent); color: var(--text); }
   @media (max-width: 820px) { .grid { grid-template-columns: 1fr; } .kpis { grid-template-columns: repeat(2,1fr); } }
+
+  .toast {
+    position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom));
+    transform: translate(-50%, 140%); z-index: 999;
+    display: flex; align-items: center; gap: 14px;
+    background: var(--card); color: var(--text); border: 1px solid var(--line);
+    border-radius: 12px; padding: 12px 14px 12px 16px; box-shadow: var(--shadow);
+    max-width: calc(100vw - 32px); transition: transform .35s cubic-bezier(.2,.9,.3,1.2);
+  }
+  .toast.show { transform: translate(-50%, 0); }
+  .toast .msg { font-size: .88rem; }
+  .toast button {
+    border: none; cursor: pointer; font-size: .85rem; padding: 8px 14px; border-radius: 9px;
+  }
+  .toast .reload { background: var(--accent); color: #fff; font-weight: 600; }
+  .toast .dismiss { background: transparent; color: var(--muted); padding: 8px; }
 </style>
 </head>
 <body>
@@ -189,6 +205,12 @@
   </div>
 
   <footer>Built as a single self-contained HTML file · Charts via Chart.js · No data leaves your browser</footer>
+</div>
+
+<div class="toast" id="updateToast" role="alert" aria-live="polite">
+  <span class="msg">✨ A new version is available.</span>
+  <button class="reload" id="toastReload">Reload</button>
+  <button class="dismiss" id="toastDismiss" aria-label="Dismiss">✕</button>
 </div>
 
 <script>
@@ -469,7 +491,39 @@ $("#install").onclick = async () => {
 window.addEventListener("appinstalled", () => { $("#install").hidden = true; });
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(()=>{}));
+  const toast = $("#updateToast");
+  let waitingWorker = null;
+
+  const showToast = w => { waitingWorker = w; toast.classList.add("show"); };
+  const hideToast = () => toast.classList.remove("show");
+
+  $("#toastDismiss").onclick = hideToast;
+  $("#toastReload").onclick = () => {
+    hideToast();
+    if (waitingWorker) waitingWorker.postMessage({ type: "SKIP_WAITING" });
+    else window.location.reload();
+  };
+
+  // When the new SW takes control, reload once to load fresh assets.
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (reloaded) return; reloaded = true; window.location.reload();
+  });
+
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").then(reg => {
+      // A worker is already waiting (update found on a previous visit).
+      if (reg.waiting && navigator.serviceWorker.controller) showToast(reg.waiting);
+      // A new worker is being installed right now.
+      reg.addEventListener("updatefound", () => {
+        const nw = reg.installing;
+        if (!nw) return;
+        nw.addEventListener("statechange", () => {
+          if (nw.state === "installed" && navigator.serviceWorker.controller) showToast(nw);
+        });
+      });
+    }).catch(()=>{});
+  });
 }
 
 // ---------- Init ----------
