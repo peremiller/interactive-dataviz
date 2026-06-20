@@ -1,5 +1,5 @@
 // Simple offline-first service worker for Interactive Data Explorer
-const CACHE = "data-explorer-v2";
+const CACHE = "data-explorer-v3";
 const ASSETS = [
   "./",
   "./index.html",

@@ -1,0 +1,10 @@
+{
+  "name": "interactive-dataviz",
+  "version": "1.0.0",
+  "description": "Interactive data visualization webpage (Chart.js, PWA, CSV/PNG export).",
+  "private": true,
+  "scripts": {
+    "start": "python3 -m http.server 4187",
+    "deploy": "bash deploy.sh"
+  }
+}
