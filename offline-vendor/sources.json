@@ -1,0 +1,9 @@
+{
+  "https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js": {
+    "local": "offline-vendor/1004b21da8989ce5ce72.js",
+    "url": "https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js",
+    "finalUrl": "https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js",
+    "type": "application/javascript; charset=utf-8",
+    "sha256": "d2af8974e95271638772e9e9524db5b9a6f58d6ec2d5d781400447b4a31c681e"
+  }
+}

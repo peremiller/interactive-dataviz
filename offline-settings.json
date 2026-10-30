@@ -1,0 +1,5 @@
+{
+  "app": "interactive-dataviz",
+  "limits": "Saved charts and bundled datasets work offline. Refreshing Reddit research data needs internet.",
+  "spa": false
+}
