@@ -1,4 +1,4 @@
-const CONFIG = {"app":"interactive-dataviz","version":"e5f2e0d3791328a87bc8","assets":["apple-touch-icon.png","icon-192.png","icon-512.png","icon-maskable-512.png","index.html","manifest.webmanifest","offline-client.js","offline-vendor/1004b21da8989ce5ce72.js","offline-vendor/licenses/chartjs-MIT.txt","offline-vendor/sources.json"],"pages":["index.html"],"spa":false};
+const CONFIG = {"app":"interactive-dataviz","version":"f0170a5e202fe3bfc5a8","assets":["apple-touch-icon.png","icon-192.png","icon-512.png","icon-maskable-512.png","index.html","manifest.webmanifest","offline-client.js","offline-vendor/1004b21da8989ce5ce72.js","offline-vendor/licenses/chartjs-MIT.txt","offline-vendor/sources.json"],"pages":["index.html"],"spa":false};
 const BASE = new URL('./', self.location.href);
 const PREFIX = 'pages-offline-' + CONFIG.app + '-';
 const CACHE = PREFIX + CONFIG.version;

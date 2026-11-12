@@ -97,7 +97,13 @@
     border: 1px solid var(--line); background: transparent; color: var(--muted);
     padding: 6px 12px; border-radius: 99px; cursor: pointer; font-size: .8rem; transition: .15s;
   }
-  .chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .chip.active { background: var(--accent); color: #10183f; border-color: var(--accent); }
+  :where(button, select, input, a, [role="button"]):focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+  .skip-link { position: absolute; left: 12px; top: -80px; background: var(--card); color: var(--text); padding: 12px; z-index: 1000; }
+  .skip-link:focus { top: 8px; }
+  .section-links { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 14px; }
+  .section-links a { color: var(--text); text-underline-offset: 4px; }
+  @media (max-width:400px) { .wrap { padding-inline:12px; } .card { padding:12px; } .controls { width:100%; } }
   input[type="range"] { accent-color: var(--accent); }
 
   .grid { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
@@ -164,6 +170,7 @@
 </style>
 <meta name="offline-limits" content="Saved charts and bundled datasets work offline. Refreshing Reddit research data needs internet."><link rel="manifest" href="manifest.webmanifest"><script data-offline-client src="offline-client.js" defer></script></head>
 <body>
+<a href="#mainContent" class="skip-link">Skip to content</a>
 <div class="wrap">
   <header class="top">
     <div class="brand">
@@ -178,9 +185,9 @@
       </div>
     </div>
     <div class="controls">
-      <label class="drop" for="csv">⬆ Upload CSV</label>
+      <label class="drop" for="csv" role="button" tabindex="0">⬆ Upload CSV</label>
       <input id="csv" type="file" accept=".csv" hidden />
-      <select id="dataset" class="btn">
+      <select id="dataset" class="btn" aria-label="Dataset">
         <option value="sales">Sample: Product Sales</option>
         <option value="traffic">Sample: Web Traffic</option>
         <option value="climate">Sample: Avg Temperature</option>
@@ -188,32 +195,34 @@
       <button id="exportPng" class="btn" title="Download the trend chart as a PNG image">🖼 PNG</button>
       <button id="exportCsv" class="btn" title="Download the visible data as CSV">📄 CSV</button>
       <button id="install" class="btn" hidden title="Install as an app">⬇ Install</button>
-      <button id="theme" class="btn">🌙 Theme</button>
+      <button id="theme" class="btn" aria-label="Toggle theme">🌙 Theme</button>
     </div>
   </header>
 
-  <section class="kpis" id="kpis"></section>
+  <nav class="section-links" aria-label="Page sections"><a href="#charts">Charts</a><a href="#concerns">Employee concerns</a></nav>
+  <main id="mainContent">
+  <section class="kpis" id="kpis" aria-label="Data summary"></section>
 
   <div class="toolbar">
     <div class="field">
       <label>Series</label>
-      <div class="chips" id="seriesChips"></div>
+      <div class="chips" id="seriesChips" role="group" aria-label="Visible series"></div>
     </div>
     <div class="field">
       <label>Chart type</label>
-      <div class="chips" id="typeChips">
-        <button class="chip active" data-type="line">Line</button>
-        <button class="chip" data-type="bar">Bar</button>
-        <button class="chip" data-type="area">Area</button>
+      <div class="chips" id="typeChips" role="group" aria-label="Chart type">
+        <button class="chip active" data-type="line" aria-pressed="true">Line</button>
+        <button class="chip" data-type="bar" aria-pressed="false">Bar</button>
+        <button class="chip" data-type="area" aria-pressed="false">Area</button>
       </div>
     </div>
     <div class="field" style="flex:1; min-width:200px;">
-      <label>Range: <span id="rangeLabel"></span></label>
+      <label for="range">Range: <span id="rangeLabel"></span></label>
       <input type="range" id="range" min="2" max="12" value="12" />
     </div>
   </div>
 
-  <div class="grid">
+  <section class="grid" id="charts" aria-label="Data charts">
     <div class="card">
       <h3>Trend over time</h3>
       <div class="hint">Hover for exact values. Toggle series above.</div>
@@ -229,22 +238,22 @@
       <div class="hint">Aggregated across the visible window.</div>
       <div class="chart-box sm"><canvas id="bars"></canvas></div>
     </div>
-  </div>
+  </section>
 
   <section class="card full concerns" id="concerns">
     <div class="concerns-head">
       <div>
-        <h3>Accenture Employee Concerns <span class="tag live" id="liveBadge" hidden>● live from r/Accenture</span></h3>
+        <h3>Accenture Employee Concerns <span class="tag live" id="liveBadge" hidden>● Published research CSV</span></h3>
         <div class="hint" id="concernSource">Synthesized from Reddit (r/Accenture) &amp; employee forums. Scores are indicative, not official.</div>
       </div>
-      <div class="chips" id="concernTabs">
-        <button class="chip active" data-view="controversial">🔥 Most controversial</button>
-        <button class="chip" data-view="trending">📈 Most trending</button>
-        <button class="chip" data-view="recent">🕒 Most recent</button>
+      <div class="chips" id="concernTabs" role="group" aria-label="Sort concerns">
+        <button class="chip active" data-view="controversial" aria-pressed="true">🔥 Most controversial</button>
+        <button class="chip" data-view="trending" aria-pressed="false">📈 Most trending</button>
+        <button class="chip" data-view="recent" aria-pressed="false">🕒 Most recent</button>
       </div>
     </div>
     <div class="concern-actions">
-      <label class="drop" for="concernCsv">⬆ Upload concerns CSV</label>
+      <label class="drop" for="concernCsv" role="button" tabindex="0">⬆ Upload concerns CSV</label>
       <input id="concernCsv" type="file" accept=".csv" hidden />
       <button class="btn" id="concernTemplate" title="Download a CSV template you can fill in">⬇ Template</button>
       <button class="btn" id="concernExport" title="Download the current concerns as CSV">📄 Export</button>
@@ -254,7 +263,8 @@
     <div class="concern-list" id="concernList"></div>
   </section>
 
-  <footer>Built as a single self-contained HTML file · Charts via Chart.js · No data leaves your browser</footer>
+  </main>
+  <footer>CSV uploads are processed locally; published research CSV may be downloaded from this site.</footer>
 </div>
 
 <div class="toast" id="updateToast" role="alert" aria-live="polite">
@@ -305,6 +315,13 @@ let charts = {};
 
 // ---------- Helpers ----------
 const $ = s => document.querySelector(s);
+const escapeHtml = value => String(value).replace(/[&<>"']/g, ch => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" })[ch]);
+for (const id of ["csv", "concernCsv"]) {
+  const label = document.querySelector(`label[for="${id}"]`);
+  label.addEventListener("keydown", e => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); document.getElementById(id).click(); }
+  });
+}
 const fmt = (n, unit) => {
   if (unit === "$") return "$" + Intl.NumberFormat("en",{notation:"compact",maximumFractionDigits:1}).format(n);
   if (unit === "°C") return n.toFixed(1) + "°";
@@ -330,11 +347,13 @@ function buildSeriesChips() {
   keys.forEach((k,i) => {
     const b = document.createElement("button");
     b.className = "chip active";
+    b.setAttribute("aria-pressed", "true");
     b.textContent = k;
     b.style.borderColor = PALETTE[i % PALETTE.length];
     b.onclick = () => {
       if (activeSeries.has(k)) { activeSeries.delete(k); b.classList.remove("active"); }
       else { activeSeries.add(k); b.classList.add("active"); }
+      b.setAttribute("aria-pressed", String(activeSeries.has(k)));
       renderAll();
     };
     box.appendChild(b);
@@ -363,7 +382,7 @@ function renderKPIs() {
   cards.forEach(c => {
     const el = document.createElement("div");
     el.className = "kpi";
-    el.innerHTML = `<div class="label">${c.label}</div><div class="val">${c.val}</div>` +
+    el.innerHTML = `<div class="label">${escapeHtml(c.label)}</div><div class="val">${escapeHtml(c.val)}</div>` +
       (c.delta ? `<div class="delta ${c.up?'up':'down'}">${c.delta}</div>` : `<div class="delta">&nbsp;</div>`);
     box.appendChild(el);
   });
@@ -454,7 +473,7 @@ $("#dataset").onchange = e => {
 $("#typeChips").onclick = e => {
   if (!e.target.dataset.type) return;
   chartType = e.target.dataset.type;
-  [...$("#typeChips").children].forEach(c => c.classList.toggle("active", c===e.target));
+  [...$("#typeChips").children].forEach(c => { c.classList.toggle("active", c===e.target); c.setAttribute("aria-pressed", String(c===e.target)); });
   renderMain();
 };
 
@@ -479,13 +498,20 @@ $("#csv").onchange = e => {
   const reader = new FileReader();
   reader.onload = ev => {
     try {
-      const rows = ev.target.result.trim().split(/\r?\n/).map(r => r.split(","));
+      const rows = ev.target.result.trim().split(/\r?\n/).map(parseCsvLine);
+      if (rows.length < 2 || rows[0].length < 2) throw new Error("CSV needs a label and a data series");
       const headers = rows[0].map(h => h.trim());
-      const labels = [], series = {};
+      if (headers.some(h => !h) || new Set(headers).size !== headers.length) throw new Error("CSV headers must be unique and nonempty");
+      const labels = [], series = Object.create(null);
       headers.slice(1).forEach(h => series[h] = []);
-      rows.slice(1).forEach(r => {
+      rows.slice(1).forEach((r, rowIndex) => {
+        if (r.length !== headers.length || !r[0].trim()) throw new Error("Incomplete row " + (rowIndex + 2));
         labels.push(r[0].trim());
-        headers.slice(1).forEach((h,i) => series[h].push(parseFloat(r[i+1]) || 0));
+        headers.slice(1).forEach((h,i) => {
+          const raw = r[i+1].trim(), value = Number(raw);
+          if (!raw || !Number.isFinite(value)) throw new Error("Invalid number at row " + (rowIndex + 2));
+          series[h].push(value);
+        });
       });
       DATASETS.uploaded = { unit: "", labels, series };
       let opt = [...$("#dataset").options].find(o => o.value === "uploaded");
@@ -587,12 +613,12 @@ function renderConcerns() {
       metric = `<div class="cap">Last spike</div><div class="big">${fmtDate(c.date)}</div>
         <div class="cap">${daysAgo(c.date)} days ago</div>`;
     }
-    const tags = c.tags.map(t => `<span class="tag">${t}</span>`).join("");
+    const tags = c.tags.map(t => `<span class="tag">${escapeHtml(t)}</span>`).join("");
     return `<div class="concern">
       <div class="rank">${i+1}</div>
       <div>
-        <div class="title">${c.title}</div>
-        <div class="desc">${c.desc}</div>
+        <div class="title">${escapeHtml(c.title)}</div>
+        <div class="desc">${escapeHtml(c.desc)}</div>
         <div class="tags">${tags}</div>
       </div>
       <div class="metric">${metric}</div>
@@ -603,7 +629,7 @@ function renderConcerns() {
 $("#concernTabs").onclick = e => {
   if (!e.target.dataset.view) return;
   concernView = e.target.dataset.view;
-  [...$("#concernTabs").children].forEach(c => c.classList.toggle("active", c === e.target));
+  [...$("#concernTabs").children].forEach(c => { c.classList.toggle("active", c === e.target); c.setAttribute("aria-pressed", String(c === e.target)); });
   renderConcerns();
 };
 
@@ -626,6 +652,13 @@ function parseCsvLine(line) {
   return out;
 }
 
+function parseConcernNumber(raw, key, required = false) {
+  if (!raw && !required) return 0;
+  const n = Number(raw);
+  if (!raw || !Number.isFinite(n) || (key !== "trend" && (n < 0 || n > 100))) throw new Error("Invalid " + key + " score");
+  return n;
+}
+
 function concernsFromCsv(text) {
   const lines = text.trim().split(/\r?\n/);
   const head = parseCsvLine(lines[0]).map(h => h.trim().toLowerCase());
@@ -637,9 +670,9 @@ function concernsFromCsv(text) {
     return {
       title: g("title"),
       desc: g("desc"),
-      controversy: +g("controversy") || 0,
-      trend: +g("trend") || 0,
-      volume: +g("volume") || 0,
+      controversy: parseConcernNumber(g("controversy"), "controversy", true),
+      trend: parseConcernNumber(g("trend"), "trend"),
+      volume: parseConcernNumber(g("volume"), "volume"),
       date: g("date") || "2026-01-01",
       tags: g("tags") ? g("tags").split(";").map(t => t.trim()).filter(Boolean) : []
     };
@@ -652,7 +685,7 @@ function applyConcerns(rows, { live = false } = {}) {
   CONCERNS = rows;
   $("#liveBadge").hidden = !live;
   if (live) $("#concernSource").textContent =
-    "Live from r/Accenture via the OAuth API. Scores are heuristics from public post signals, not official metrics.";
+    "Loaded from a published concerns.csv snapshot. Source signals may be outdated; scores are heuristics, not official metrics.";
   $("#concernReset").hidden = false;
   renderConcerns();
 }

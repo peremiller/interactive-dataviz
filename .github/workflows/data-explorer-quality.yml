@@ -1,0 +1,30 @@
+name: Data Explorer Quality
+on:
+  push:
+    branches: [master]
+    paths:
+      - index.html
+      - sw.js
+      - offline-assets.json
+      - tests/**
+      - .github/workflows/data-explorer-quality.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: HTML and CSV safety tests
+        run: node --test tests/data-explorer.test.mjs
+      - name: Verify reproducible canonical offline asset build
+        run: |
+          python3 scripts/build-offline.py
+          git diff --exit-code -- index.html sw.js offline-assets.json
