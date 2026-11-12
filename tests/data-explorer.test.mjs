@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {runInNewContext} from 'node:vm';
+import {runInNewContext, Script} from 'node:vm';
 const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 const extract=name=>{
   const start=html.indexOf('function '+name+'(');
@@ -28,4 +28,11 @@ test('Rejects unsafe or invalid scores instead of storing zero',()=>{
 test('Keyboard, deep link, selection and upload paths exist',()=>{
  for(const s of ['id="mainContent"','id="charts"','id="concerns"','href="#charts"','href="#concerns"','label for="range"','aria-pressed="true"','aria-pressed="false"','Number.isFinite(value)','label[for='])assert.ok(html.includes(s),s);
  assert.ok(!html.includes('● live from r/Accenture'));
+});
+
+test('Inline app JavaScript compiles without syntax errors',()=>{
+ const blocks=[...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)]
+  .map(match=>match[1]).filter(source=>source.trim());
+ assert.ok(blocks.length,'Inline scripts found');
+ for(const source of blocks) assert.doesNotThrow(()=>new Script(source));
 });
